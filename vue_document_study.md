@@ -1664,9 +1664,464 @@ C=> select 字段将 value 作为 prop 并将 change 作为事件。
 
 #### 十六，组件基础 
 
-###### 	1.基本实例
+###### 	1.基本实例---组件是可复用的 Vue 实例，且带有一个名字
+
+```vue
+<template>
+	<div id="components-demo">
+  		<button-counter></button-counter>
+	</div>
+</template>
+<script>
+	// 定义一个名为 button-counter 的新组件,全局注册
+	Vue.component('button-counter', {
+  		data: function () {
+    		return {
+      		count: 0
+    	}
+  	},
+  		template: '<button v-on:click="count++">You clicked me {{ count }} times.</button>'
+	})
+    new Vue({ el: '#components-demo' })
+</script>
+```
+
+###### 2.组件的复用
+
+```vue
+<div id="components-demo">
+  <button-counter></button-counter>
+  <button-counter></button-counter>
+  <button-counter></button-counter>
+</div>
+<script>
+    // 一个组件的 data 选项必须是一个函数
+	data: function () {
+  				return {
+    				count: 0
+ 		 }
+	}
+</script>
+```
+
+###### 3.组件的组织-- **全局注册**和**局部注册**
+
+全局注册的组件
+
+可以用在其被注册之后的
+
+**任何 (通过 `new Vue`) 新创建的 Vue 根实例，**也包括其组件树中的所有子组件的模板中。
+
+###### 4. 通过  子组件的prop    向子组件   传递数据
+
+​	==1.Prop 就是你**可以在子组件上注册的**   **一些自定义特性**。子组件暴露的接口==
+
+​	==**2.当一个值传递给子组件的**   **一个 prop 特性/接口的时候**，它就变成了那个**组件实例的一个属性**==
+
+​	**3.任何一个子组件默认可以拥有任意数量的 prop，任何值都可以传递给任何 prop**
+
+​	4. 结合`v-bind` 可以动态传递 prop的值
+
+```vue
+<script>
+	Vue.component('blog-post', {
+  		props: ['post'],
+  		template: `
+    			<div class="blog-post">
+      			<h3>{{ post.title }}</h3>
+      			<div v-html="post.content"></div>
+    			</div>
+  				`
+			})
+</script>
+<!-- 上述的这个和一些接下来的示例使用了 JavaScript 的模板字符串来让多行的模板更易读。它们在 IE 下并没有被支持，所以如果你需要在不 (经过 Babel 或 TypeScript 之类的工具) 编译的情况下支持 IE，请使用折行转义字符取而代之。-->
+<script>
+	Vue.component('blog-post', {
+  		props: ['post'],
+  		template: "
+    			<div class="blog-post">\
+      			<h3>{{ post.title }}</h3>\
+      			<div v-html="post.content"></div>\
+    			</div>
+  				"
+			})
+</script>
+```
+
+###### 5.父组件 监听子组件事件---触发子组件的事件
+
+```vue
+<script>
+	Vue.component('blog-post', {
+  		props: ['post'],
+  		template: `
+    		<div class="blog-post">
+      			<h3>{{ post.title }}</h3>
+      			<button>
+       			 	Enlarge text
+      			</button>
+      			<div v-html="post.content"></div>
+    		</div>
+  `
+})
+
+</script>
+```
+
+需求： **当点击子组件这个按钮时button**，我们需要**告诉父级组件**  做相应的事情
+
+解决方法：Vue 实例提供了一个    ==**自定义事件的系统**==    来解决这个问题。**父级组件可以像处理 native DOM 事件一样**      ==通过 `v-on` 监听子组件实例的任意事件==
+
+```vue
+<--父组件： v-on:监听（子组件通知的）自定义事件类型 -- >
+<--vue行内式的 事件处理对象 $event  -- >
+<blog-post
+  ...
+  v-on:enlarge-text="postFontSize += 0.1"
+  v-on:enlarge-text="postFontSize += $event"
+></blog-post>
+<-- 子组件 $emit()方法，通知父组件的v-on需要监听的 自定义事件类型，以及传递载荷-->
+<button v-on:click="$emit('enlarge-text')">
+  Enlarge text
+</button>
+<script>
+	methods: {
+  			onEnlargeText: function (enlargeAmount) {
+    				this.postFontSize += enlargeAmount
+ 		 }
+	}    
+</script>
+```
+
+###### 6.在组件上 使用v-model
+
+```vue
+<input v-model="searchText">
+<-- v-model指令就是v-bind和v-on的语法糖 ，v-on要监听input事件，以及$emit.target.value-->
+```
+
+```vue
+<input
+  v-bind:value="searchText"
+  v-on:input="searchText = $event.target.value"
+>
+```
+
+```vue
+<template>
+	<!--自定义组件上，v-model 则会这样 $event就是vue行内的事件对象 -->
+	<custom-input
+  		v-bind:value="searchText"
+  		v-on:input="searchText = $event"
+		>
+	</custom-input>
+	<-- 简化后的组件，应用 v-model-->
+    <custom-input v-model="searchText"></custom-input>
+</template>
+<script>
+	Vue.component('custom-input', {
+  		props: ['value'],
+  		template: `
+    		<input
+      			v-bind:value="value"
+      			v-on:input="$emit('input', $event.target.value)"
+    			>
+  			`
+		})
+</script>
+```
+
+###### 7. 通过插槽分发内容--slot
+
+```vue
+<template>
+	<alert-box>
+  		Something bad happened.=>将这里的内容渲染到【默认插槽】<slot></slot>中
+	</alert-box>
+
+</template>
+
+<script>
+    Vue.component('alert-box', {
+  			template: `
+    			<div class="demo-alert-box">
+      			<strong>Error!</strong>
+      			<slot></slot>
+    			</div>
+  				`
+			})
+</script>
+```
+
+###### 8. 动态组件
+
+```vue
+<!-- 组件会在 `currentTabComponent` 改变时改变 -->
+<component v-bind:is="currentTabComponent"></component>
+<--在上述示例中，currentTabComponent 可以包括：
+	已注册组件的名字，或
+	一个组件的选项对象-->
+```
+
+
+
+###### 9. 解析Dom模板时注意事项
+
+有些 HTML 元素，诸如 ``、``、`` 和 ``，对于哪些元素可以出现在其内部是有严格限制的。而有些元素，诸如 ``、 和 ``，只能出现在其它某些特定的元素内部。
+
+需要注意的是**如果我们从以下来源使用模板的话，这条限制是\*不存在\*的**
+
+- 字符串 (例如：`template: '...'`)
+
+- 单文件组件 => .vue文件
+
+- <script type="text/x-template">
+
+```vue
+<!--报错，table里面只能嵌套tr标签 -->
+<table>
+  <blog-post-row></blog-post-row>
+</table>
+<-- 解决方案：is参数，blog-post-row就是注册的组件名称-->
+<table>
+  <tr is="blog-post-row"></tr>
+</table>
+    
+```
 
 #### 十七，深入了解组件
 
+##### 一，组件注册-全局/局部注册
+
+###### 1.组件名：`Vue.component` 的第一个参数。
+
+**注意：**
+
+当直接在 DOM 中使用一个组件, 而不是在字符串模板或[单文件组件](https://cn.vuejs.org/v2/guide/single-file-components.html)) 的时候
+
+强烈推荐遵循 [W3C 规范](https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name)中的自定义组件名 :==**字母全小写且必须包含一个连字符***==
+
+注意：定义组件名的方式有两种：使用 kebab-case  或用 PascalCase
+
+```vue
+<script>
+    // 使用 kebab-case
+	Vue.component('my-component-name', { /* ... */ })
+    //使用 PascalCase
+	Vue.component('MyComponentName', { /* ... */ })
+    // 直接在 DOM (即非字符串的模板) 中使用时只有 kebab-case 是有效的。
+</script>
+```
+
+###### 2.全局注册
+
+```vue
+<script>
+		Vue.component('component-a', { /* ... */ })
+		Vue.component('component-b', { /* ... */ })
+		Vue.component('component-c', { /* ... */ })
+		new Vue({ el: '#app' })
+</script>
+<template>
+	<-- 
+        这些组件是全局注册的。也就是说它们在注册之后
+        可以用在任何新创建的 Vue 根实例 (new Vue) 的模板中,
+        这三个组件在各自内部也都可以相互使用。
+        -->
+        
+   <div id="app">
+  		<component-a></component-a>
+  		<component-b></component-b>
+  		<component-c></component-c>
+	</div>
+</template>
+```
+
+==注意：**这三个组件在各自内部也都可以相互使用**，任何新创建的 Vue 根实例 (new Vue) 的模板中==
+
+###### 3.局部注册--**局部注册的组件在其子组件中\*不可用\***
+
+```vue
+<script>
+   // 方式1.
+	var ComponentA = { /* ... */ }
+	var ComponentB = {
+  			components: {
+    		'component-a': ComponentA
+  		},
+  		// ...
+	}
+    // 方式2.
+    import ComponentA from './ComponentA.vue'
+
+		export default {
+  			components: {
+    		ComponentA
+  		},
+  		// ...
+	}
+</script>
+```
+
+###### 4.模块系统
+
+​	A，在模块系统中局部注册
+
+```vue
+<script>
+	import ComponentA from './ComponentA'
+	import ComponentC from './ComponentC'
+	export default {
+  			components: {
+    		ComponentA,
+    		ComponentC
+  		},
+  		// ...
+	}
+</script>
+```
+
+B, 基础组件自动化全局注册
+
+​				==础组件：在各个组件中被频繁的用到，输入框或按钮。？？？==
+
+```vue
+import Vue from 'vue'
+import upperFirst from 'lodash/upperFirst'
+import camelCase from 'lodash/camelCase'
+
+const requireComponent = require.context(
+  // 其组件目录的相对路径
+  './components',
+  // 是否查询其子目录
+  false,
+  // 匹配基础组件文件名的正则表达式
+  /Base[A-Z]\w+\.(vue|js)$/
+)
+
+requireComponent.keys().forEach(fileName => {
+  // 获取组件配置
+  const componentConfig = requireComponent(fileName)
+
+  // 获取组件的 PascalCase 命名
+  const componentName = upperFirst(
+    camelCase(
+      // 获取和目录深度无关的文件名
+      fileName
+        .split('/')
+        .pop()
+        .replace(/\.\w+$/, '')
+    )
+  )
+
+  // 全局注册组件
+  Vue.component(
+    componentName,
+    // 如果这个组件选项是通过 `export default` 导出的，
+    // 那么就会优先使用 `.default`，
+    // 否则回退到使用模块的根。
+    componentConfig.default || componentConfig
+  )
+})
+```
+
+==： 记住**全局注册的行为必须在根 Vue 实例 (通过 `new Vue`) 创建之前发生**。==
+
+#### 二，Prop--prop中暴露的属性名(Prop就是Dom特性）
+
+##### 1，Prop的大小写
+
+**HTML 中的特性名是大小写不敏感的**，所以浏览器会把所有**大写字符**解释为**小写字符**
+
+==所以，你使用 DOM 中的模板时，camelCase (驼峰命名法) 的 prop 名需要使用其等价的 kebab-case (短横线分隔命名) 命名==
+
+**如果你使用字符串模板，那么这个限制就不存在了**
+
+```vue
+<script>
+	Vue.component('blog-post', {
+  	// 在 JavaScript 中是 camelCase 的
+  	props: ['postTitle'],
+  	template: '<h3>{{ postTitle }}</h3>'
+})
+</script>
+<template>
+	<!-- 在 HTML 中是 kebab-case 的 -->
+	<blog-post post-title="hello!"></blog-post>
+</template>
+
+```
+
+##### 2，Prop类型
+
+```vue
+<script>
+props: {
+  title: String,
+  likes: Number,
+  isPublished: Boolean,
+  commentIds: Array,
+  author: Object,
+  callback: Function,
+  contactsPromise: Promise // or any other constructor
+}
+</script>
+```
+
+##### 3，传递静态或动态Prop
+
+```vue
+<template>
+	<blog-post title="My journey with Vue"></blog-post>
+	<!-- 1,传递布尔值，包含该 prop 没有值的情况在内，都意味着 `true`。-->
+	<blog-post is-published></blog-post>
+
+	<!-- 即便数组是静态的，我们仍然需要 `v-bind` 来告诉 Vue -->
+	<!-- 这是一个 JavaScript 表达式而不是一个字符串。-->
+	<blog-post v-bind:comment-ids="[234, 266, 273]"></blog-post>
+	<!-- 用一个变量进行动态赋值。-->
+	<blog-post v-bind:comment-ids="post.commentIds"></blog-post>
+	<-- 传入对象-->
+	<blog-post
+      v-bind:author="{
+    		name: 'Veronica',
+    		company: 'Veridian Dynamics'
+  		}"
+		>
+    </blog-post>
+	<!-- 用一个变量进行动态赋值。-->
+	<blog-post v-bind:author="post.author"></blog-post>
+   	<!--1 -->
+    <blog-post v-bind="post"></blog-post>
+    <!--2 -->
+    <blog-post
+  		v-bind:id="post.id"
+  		v-bind:title="post.title"
+		></blog-post>
+    <!--1与2，是等价。 -->
+</template>
+```
+
+##### 4, 单项数据流
+
+A.所有的 prop 都使得其父子 prop 之间形成了一个**单向下行绑定**
+
+B.父级 prop 的更新会向下流动到子组件中，但是反过来则不行,数据流向容易理解。
+
+C：***每次父级组件发生更新时，子组件中所有的 prop 都将会刷新为最新的值***。这意味着你**不**应该在一个子组件内部改变 prop。如果你这样做了，**Vue 会在浏览器的控制台中发出警告**。
 
 
+
+#### 十八，过渡和动画
+
+#### 十九，可复用性和组合
+
+#### 二十，工具
+
+#### 二十一，规模化
+
+#### 二十二，内在
+
+#### 二十三，迁移
+
+#### 二十四，更多

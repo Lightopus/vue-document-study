@@ -1318,15 +1318,353 @@ D, 对象变更检测注意事项--**Vue 不能检测对象属性的添加或删
 
 #### 十四，事件处理
 
+ 1.==**`v-on` 指令监听 DOM 事件**==，并在触发时运行一些 JavaScript 代码。
+
+```vue
+<template>
+	<div id="example-1">
+       <!--模板中运行的js代码，是简单的js表达式。  v-on 直接接受 js代码 -->
+  		<button v-on:click="counter += 1">Add 1</button>
+  		<p>The button above has been clicked {{ counter }} times.</p>
+	</div>
+</template>
+<script>
+	var example1 = new Vue({
+  			el: '#example-1',
+  			data: {
+    			counter: 0
+ 		 }
+	})
+</script>
 
 
-#### 十五，表单输入绑定
+```
 
+```vue
+<template>
+	<-- v-on 接收一个 需要调用的  方法名称	-->
+   <div id="example-2">
+  		<!-- `greet` 是在下面定义的方法名 -->
+  		<button v-on:click="greet">Greet</button>
+	</div>
+   <-- 内联处理器中的方法 -->
+   <div id="example-3">
+  		<button v-on:click="say('hi')">Say hi</button>
+  		<button v-on:click="say('what')">Say what</button>
+	</div>
+    <-- 内联处理器中的方法,问原始的 DOM 事件==> 特殊变量 $event -->
+    <button v-on:click="warn('Form cannot be submitted yet.', $event)">
+  			Submit
+	</button>
+</template>
+<script>
+	var example2 = new Vue({
+  		el: '#example-2',
+  		data: {
+    		name: 'Vue.js'
+  		},
+  // 在 `methods` 对象中定义方法
+  methods: {
+    // 1.
+    greet: function (event) {
+      // `this` 在方法里指向当前 Vue 实例
+      alert('Hello ' + this.name + '!')
+      // `event` 是原生 DOM 事件
+      if (event) {
+        alert(event.target.tagName)
+      }
+      // 内联处理器中的方法
+      say: function (message) {
+     		alert(message)
+    	}
+       // 现在我们可以访问原生事件对象
+       warn: function (message, event) {
+    		if (event) {
+      			event.preventDefault()
+    		}
+    	alert(message)
+  		}
+    }
+  }
+})
 
+</script>
+```
 
-#### 十六，组件基础
+2. 事件修饰符
 
+- .stop => event.stopPropagation()
 
+- .prevent => event.preventDefault()
+
+- .capture
+
+- .self
+
+- .once
+
+- .passive
+
+  ```vue
+  <templeate>
+  <!-- 阻止单击事件继续传播,组织冒泡 -->
+  <a v-on:click.stop="doThis"></a>
+      
+  <!-- 只当在 event.target 是当前元素自身时触发处理函数 没有事件冒泡肯捕获-->
+  <!-- 即事件不是从内部元素触发的 -->
+  <div v-on:click.self="doThat">...</div>
+  <!-- 添加事件监听器时使用事件捕获模式 -->
+      
+  <!-- 即内部元素触发的事件先在此处理，然后才交由内部元素进行处理 -->
+  <-- 其实，就是事件捕获。。。-->  
+  <div v-on:click.capture="doThis">...</div>
+      
+      
+  <!-- 提交事件不再重载页面，阻止默认行为 -->
+  <form v-on:submit.prevent="onSubmit"></form>
+  
+  <!-- 修饰符可以串联， -->
+  <a v-on:click.stop.prevent="doThat"></a>
+  
+  <!-- 只有修饰符 -->
+  <form v-on:submit.prevent></form>
+      
+  <!-- 点击事件将只会触发一次 .once 修饰符还能被用到自定义的组件事件上-->
+  <a v-on:click.once="doThis"></a>
+  <--Vue 还对应 addEventListener 中的 passive 选项提供了 .passive 修饰符。滚动事件的默认行为 (即滚动行为) 将会立即触发 而不会等待 `onScroll` 完成 这其中包含 `event.preventDefault()` 的情况-->
+  <div v-on:scroll.passive="onScroll">...</div>
+  </templeate>
+  ```
+
+  注意：
+
+   ==**`v-on:click.prevent.self` 会阻止所有的点击，而 `v-on:click.self.prevent` 只会阻止对元素自身的点击。**==
+
+  **这个 `.passive` 修饰符尤其能够提升移动端的性能**=> `passive` 会告诉浏览器   你*不*想阻止事件的默认行为。
+
+  ==不要把 `.passive` 和 `.prevent` 一起使用==
+
+  3. 按键修饰符
+
+     - `.enter`
+     - `.tab`
+     - `.delete` (捕获“删除”和“退格”键)
+     - `.esc`
+     - `.space`
+     - `.up`
+     - `.down`
+     - `.left`
+     - `.right`
+
+     ```vue
+     <!-- 只有在 `key` 是 `Enter` 时调用 `vm.submit()` -->
+     <input v-on:keyup.enter="submit"> 或者 <input v-on:keyup.13="submit">
+     <-- 处理函数只会在 $event.key 等于 PageDown 时被调用。-->
+     <input v-on:keyup.page-down="onPageDown">
+     <script>
+     	// 自定义按键修饰符别名===》可以使用 `v-on:keyup.f1`
+     	Vue.config.keyCodes.f1 = 112    
+     </script>
+     
+     ```
+
+   4. 系统修饰键
+
+      - `.ctrl`
+
+      - `.alt`
+
+      - `.shift`
+
+      - `.meta`
+
+        ```vue
+        <!-- Alt + C -->
+        <input @keyup.alt.67="clear">
+        
+        <!-- Ctrl + Click -->
+        <div @click.ctrl="doSomething">Do something</div>
+        
+        <!-- 请注意修饰键与常规按键不同，在和 keyup 事件一起用时，事件触发时修饰键必须处于按下状态。换句话说，只有在按住 ctrl 的情况下释放其它按键，才能触发 keyup.ctrl。而单单释放 ctrl 也不会触发事件。如果你想要这样的行为，请为 ctrl 换用 keyCode：keyup.17。-->
+        ```
+
+        ```text
+        5---.exact 修饰符允许你控制由精确的系统修饰符组合触发的事件。
+        ```
+
+        
+
+        ```vue
+        <!-- 即使 Alt 或 Shift 被一同按下时也会触发 -->
+        <button @click.ctrl="onClick">A</button>
+        
+        <!-- 有且只有 Ctrl 被按下的时候才触发 -->
+        <button @click.ctrl.exact="onCtrlClick">A</button>
+        
+        <!-- 没有任何系统修饰符被按下的时候才触发 -->
+        <button @click.exact="onClick">A</button>
+        ```
+
+        **6.鼠标按钮修饰符**
+
+        - `.left`
+        - `.right`
+        - `.middle`
+
+        灵魂拷问？？？
+
+        ==vue为啥要在为什么在 HTML 中监听事件==
+
+        这种事件监听的方式违背了关注点分离 (separation of concern) 这个长期以来的优良传统。但不必担心，因为所有的 Vue.js 事件处理方法和表达式都严格绑定在当前视图的 ViewModel 上，它不会导致任何维护上的困难
+
+        v-on的好处有哪些？？？
+
+        1. 扫一眼 **HTML 模板**便能轻松定位在 JavaScript 代码里对应的**方法**。
+        2. 因为你无须在 JavaScript 里手动绑定事件，你的 **ViewModel 代码可以是非常纯粹的逻辑，和 DOM 完全解耦，更易于测试。**
+        3. 当一个 ViewModel 被销毁时，**所有的事件处理器都会自动被删除**。你无须担心如何清理它们。
+
+#### 十五，表单输入绑定=> v-model
+
+###### 一，基础用法
+
+1. *v-model 双向数据绑定的=>表单元素有*： 
+
+   ==A. <input />==
+
+   ==B.<textarea></textarea>==
+
+   ==C.<select></select>==
+
+2. **注意事项：**
+
+   A.**元素**上创建**双向数据绑定**。它会根据  **控件类型**  自动选取正确的方法来   **更新元素**
+
+   B.**v-model 本质**上不过是**语法糖**,它负责**监听**用户的**输入事件**以**更新数据**，**并对一些极端场景**进行一些**特殊处理。**
+
+   C. `v-model` 会将**Vue 实例的数据**作为**数据来源**，而**忽略所有表单元素**的 ==value`、`checked`、`selected`==特性的初始值,因此在**`data` 选项**中声明**表单元素的初始值**。
+
+**3. `v-model` 在内部为不同的输入元素使用不同的属性并抛出不同的事件：**
+
+```html
+A=> text 和 textarea 元素使用 value 属性和 input 事件；
+B=> checkbox 和 radio 使用 checked 属性和 change 事件；
+C=> select 字段将 value 作为 prop 并将 change 作为事件。
+```
+
+4. **对于需要使用[输入法](https://zh.wikipedia.org/wiki/输入法) (如中文、日文、韩文等) 的语言，你会发现 `v-model` 不会在输入法组合文字过程中得到更新。如果你也想处理这个过程，请使用 `input` 事件。**
+
+###### 二，应用实例
+
+```vue
+<!-- 1.文本和多行文本=> input textarea  -->
+<input v-model="message" placeholder="edit me">
+<textarea v-model="message" placeholder="add multiple lines"></textarea>
+<!--注意： -->
+<-- 在文本区域插值 (<textarea>{{text}}</textarea>) 并不会生效，应用 v-model 来代替。-->
+
+<!--2.单个复选框 inpu没有value值-->
+<input type="checkbox" id="checkbox" v-model="checked">
+<label for="checkbox">{{ checked }}</label>
+
+<!--3.单个复选框 input 有value值-->
+<div id='example-3'>
+  <input type="checkbox" id="jack" value="Jack" v-model="checkedNames">
+  <label for="jack">Jack</label>
+  <input type="checkbox" id="john" value="John" v-model="checkedNames">
+  <label for="john">John</label>
+  <input type="checkbox" id="mike" value="Mike" v-model="checkedNames">
+  <label for="mike">Mike</label>
+  <br>
+  <span>Checked names: {{ checkedNames }}</span>
+  <-- 全部选中 输出： Checked names: [ "John", "Jack", "Mike" ]-->
+  <!--4.单选按钮： input 有value值，绑定data中的同一个响应式据 type="radio" -->    
+  	<div id="example-4">
+  	<input type="radio" id="one" value="One" v-model="picked">
+  	<label for="one">One</label>
+  	<br>
+  	<input type="radio" id="two" value="Two" v-model="picked">
+  	<label for="two">Two</label>
+  	<br>
+  	<span>Picked: {{ picked }}</span>
+   <!--5.单选选择框 v-model="selected" 绑定的不是数组。。。而是字符串-->
+   <div id="example-5">
+  		<select v-model="oselected">
+    		<option disabled value="">请选择</option>
+    		<option>A</option>
+    		<option>B</option>
+    		<option>C</option>
+  		</select>
+  		<span>Selected: {{ oselected }}</span>
+	</div>
+   <-- 注意 如果 v-model 表达式的初始值未能匹配任何选项 disabled value="" oselected的值也是""，
+     <select> 元素将被渲染为“未选中”状态。在 iOS 中，这会使用户无法选择第一个选项。因为这样的情况下,iOS 不会触发 change 事件。
+      因此，更推荐像上面这样提供一个值为空的禁用选项。
+    -->
+   <!-- 6.多选选择框 (绑定到一个数组)-->
+   <div id="example-6">
+  		<select v-model="selected" multiple style="width: 50px;">
+    		<option>A</option>
+    		<option>B</option>
+    		<option>C</option>
+  		</select>
+  		<br>
+  		<span>Selected: {{ selected }}</span>
+       <!-- 最后输出：Selected: [ "A", "B" ]-->
+	</div>
+   <!--7.复选框 true-value false-value -->
+   <input
+  		type="checkbox"
+  		v-model="toggle"
+  		true-value="yes"
+  		false-value="no"
+		>    
+   <!-- 8.单选按钮，绑定的v-model的值，是input的value值-->
+   <input type="radio" v-model="pick" v-bind:value="a">
+   <-- 当选中时 vm.pick === vm.a-->
+   <!-- 9.选择框的选项 option的值是一个对象-->
+	<select v-model="selected">
+    	<!-- 内联对象字面量 -->
+  		<option v-bind:value="{ number: 123 }">123</option>
+	</select>
+   <-- 
+       当选中时 typeof vm.selected // => 'object' 
+      vm.selected.number // => 123
+   -->
+</div>    
+</div>
+<script>
+	new Vue({
+  		el: '#example-3',
+  			data: {
+          checkedNames: []，
+          oselected: ''，
+          selected: []
+  		}
+	})
+    // 当选中时
+		vm.toggle === 'yes'
+    // 当没有选中时
+		vm.toggle === 'no'
+  // 这里的 true-value 和 false-value 特性并不会影响输入控件的 value 特性，因为浏览器在提交表单时并不会	// 包含未被选中的复选框。如果要确保表单中这两个值中的一个能够被提交，(比如“yes”或“no”)，请换用单选按钮。
+</script>
+```
+
+###### 三，表单修饰符
+
+```vue
+<template>
+	<!--1. .lazy修饰符 在“change”时而非“input”时更新 -->
+	<input v-model.lazy="msg" >
+	<!--2. .number修饰符 输入值转为数值类型-->
+	<input v-model.number="age" type="number">
+	<!--3. .number修饰符 动过滤用户输入的首尾空白字符-->
+	<input v-model.trim="msg">
+</template>
+```
+
+#### 十六，组件基础 
+
+###### 	1.基本实例
 
 #### 十七，深入了解组件
 

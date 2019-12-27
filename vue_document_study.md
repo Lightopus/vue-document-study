@@ -223,7 +223,7 @@ var vm = new Vue({
 })
 // 获得这个实例上的属性
 // 返回源数据中对应的字段,
-// 注意：vue将data和methods方法省略了。
+// 注意：vue将data和methods方法，prop 字段省略了 访问时直接this.[prop,methods,data中的方法]。
 vm.a == data.a // => true
 // 设置属性也会影响到原始数据
 vm.a = 2
@@ -2027,9 +2027,9 @@ requireComponent.keys().forEach(fileName => {
 
 ==： 记住**全局注册的行为必须在根 Vue 实例 (通过 `new Vue`) 创建之前发生**。==
 
-#### 二，Prop--prop中暴露的属性名(Prop就是Dom特性）
+##### 二，Prop--prop中暴露的属性名(Prop就是Dom特性）
 
-##### 1，Prop的大小写
+###### 1，Prop的大小写
 
 **HTML 中的特性名是大小写不敏感的**，所以浏览器会把所有**大写字符**解释为**小写字符**
 
@@ -2052,7 +2052,7 @@ requireComponent.keys().forEach(fileName => {
 
 ```
 
-##### 2，Prop类型
+###### 2，Prop类型
 
 ```vue
 <script>
@@ -2068,7 +2068,7 @@ props: {
 </script>
 ```
 
-##### 3，传递静态或动态Prop
+###### 3，传递静态或动态Prop
 
 ```vue
 <template>
@@ -2102,13 +2102,361 @@ props: {
 </template>
 ```
 
-##### 4, 单项数据流
+###### 4, 单项数据流
 
 A.所有的 prop 都使得其父子 prop 之间形成了一个**单向下行绑定**
 
 B.父级 prop 的更新会向下流动到子组件中，但是反过来则不行,数据流向容易理解。
 
 C：***每次父级组件发生更新时，子组件中所有的 prop 都将会刷新为最新的值***。这意味着你**不**应该在一个子组件内部改变 prop。如果你这样做了，**Vue 会在浏览器的控制台中发出警告**。
+
+==注意：这里有两种常见的试图改变一个 prop 的情形：==
+
+```vue
+<script>
+    // 这个 prop 用来传递一个初始值
+	props: ['initialCounter'],
+		data: function () {
+  			return {
+    			counter: this.initialCounter
+ 		 }
+	}
+   // 这个 prop 以一种原始的值传入且需要进行转换。
+   props: ['size'],
+		computed: {
+  			normalizedSize: function () {
+    			return this.size.trim().toLowerCase()
+  		}
+	}
+	// 注意在 JavaScript 中对象和数组是通过引用传入的，所以对于一个数组或对象类型的 prop 来说，在子组件	// 中改变这个对象或数组本身将会影响到父组件的状态。
+</script>
+```
+
+###### 5.Prop验证
+
+==为了定制 prop 的验证方式，你可以为 `props` 中的值提供一个带有验证需求的对象，而不是一个字符串数组==
+
+当 prop 验证失败的时候，(开发环境构建版本的) Vue 将会产生一个控制台的警告
+
+注意那些 prop 会在一个组件实例创建**之前**进行验证，所以实例的属性 (如 `data`、`computed` 等) 在 `default` 或 `validator` 函数中是不可用的。
+
+```vue
+<script>
+	Vue.component('my-component', {
+  props: {
+    // 基础的类型检查 (`null` 和 `undefined` 会通过任何类型验证)
+    propA: Number,
+    // 多个可能的类型
+    propB: [String, Number],
+    // 必填的字符串
+    propC: {
+      type: String,
+      required: true
+    },
+    // 带有默认值的数字
+    propD: {
+      type: Number,
+      default: 100
+    },
+    // 带有默认值的对象
+    propE: {
+      type: Object,
+      // 对象或数组默认值必须从一个工厂函数获取
+      default: function () {
+        return { message: 'hello' }
+      }
+    },
+    // 自定义验证函数
+    propF: {
+      validator: function (value) {
+        // 这个值必须匹配下列字符串中的一个
+        return ['success', 'warning', 'danger'].indexOf(value) !== -1
+      }
+    }
+  }
+})
+</script>
+```
+
+###### 6，类型检查
+
+```vue
+<script>
+    function Person (firstName, lastName) {
+  						this.firstName = firstName
+  						this.lastName = lastName
+			}
+    Vue.component('blog-post', {
+  				props: {
+    			author: Person
+  			}
+	})
+    // 来验证 author prop 的值是否是通过 new Person 创建的。
+</script>
+```
+
+###### 7，非Prop的特性
+
+如果，*一个非 prop 特性是指传向一个组件*，**但是该组件并没有相应 prop 定义的特性**，==也就是子组件没有暴露/定义==，***prop的特性，组件可以接受任意的特性，而这些特性会被添加到这个组件的根元素上***
+
+```vue
+<-- 想象一下你
+    通过一个 Bootstrap 插件使用了一个第三方的 <bootstrap-date-input> 组件，
+	这个插件需要在其 <input> 上用到一个 data-date-picker 特性。
+	我们可以将这个特性添加到你的组件实例上
+	-->
+
+<bootstrap-date-input data-date-picker="activated"></bootstrap-date-input>
+
+<-- 然后这个 data-date-picker="activated" 特性就会自动添加到 <bootstrap-date-input> 的根元素上。-->
+```
+
+###### 8，替换/合并已有的特性
+
+```vue
+<!-- 插件的模板，<bootstrap-date-input> 的模板是这样的-->
+<template>
+	<input type="date" class="form-control">
+</template>
+<-- 定义接口/插件： 为了给我们的日期选择器插件定制一个主题，我们可能需要像这样添加一个特别的类名 -->
+<template>
+	<bootstrap-date-input
+  		data-date-picker="activated"
+  		class="date-picker-theme-dark">
+    </bootstrap-date-input>
+</template>
+```
+
+==在这种情况下，我们定义了两个不同的 `class` 的值：==
+
+- `form-control`，这是在组件的模板内设置好的
+
+- `date-picker-theme-dark`，这是从组件的父级传入的
+
+  ***==class` 和 `style` 特性会稍微智能一些==，即两边的值会被合并起来，从而得到最终的值：`form-control date-picker-theme-dark***
+
+###### 9，禁用特性继承--inheritAttrs: false,
+
+==如果你**不**希望组件的根元素继承特性，你可以在组件的选项中设置 inheritAttrs: false==
+
+注意： inheritAttrs: false，它适合配合实例的 `$attrs` 属性使用，该属性包含了传递给一个组件的特性名和特性值，有了 `inheritAttrs: false` 和 `$attrs`，***你就可以手动决定这些特性会被赋予哪个元素**。***==在撰写[基础组件](https://cn.vuejs.org/v2/style-guide/#基础组件名-强烈推荐)的时候是常会用到的。==**
+
+```vue
+<script>
+    // v-bind="$attrs"与inheritAttrs: false,
+	Vue.component('base-input', {
+  		inheritAttrs: false,
+  		props: ['label', 'value'],
+  			template: `
+    		<label>
+      			{{ label }}
+      			<input
+        		v-bind="$attrs"
+        		v-bind:value="value"
+        		v-on:input="$emit('input', $event.target.value)"
+      		>
+    	</label>
+  		`
+	})
+</script>
+```
+
+**总结： 注意 `inheritAttrs: false` 选项不会影响 `style` 和 `class` 的绑定。**
+
+##### 三，自定义事件
+
+###### 	1，事件名--不存在任何自动化的大小写转换-不同于组件和 prop，
+
+```vue
+<script> 
+	this.$emit('myEvent')
+	<!-- 没有效果 -->
+	<my-component v-on:my-event="doSomething"></my-component>
+    
+    // v-on 事件监听器在 DOM 模板中会被自动转换为全小写 (因为 HTML 是大小写不敏感的)，
+    // 所以 v-on:myEvent将会变成 v-on:myevent——导致 myEvent 不可能被监听到。
+</script>
+```
+
+###### 2.自定义组件的v-model ?????
+
+一个组件上的 `v-model` 默认会利用名为 `value` 的 prop 和名为 `input` 的事件，但是像单选框、复选框等类型的输入控件可能会将 `value` 特性用于[不同的目的](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox#Value)。`model` 选项可以用来避免这样的冲突
+
+```vue
+<template>
+	<-- 定义组件定义 v-model 接口-->
+	<base-checkbox v-model="lovingVue"></base-checkbox>
+</template>
+<script>
+  Vue.component('base-checkbox', {
+  		model: {
+    		prop: 'checked',
+    		event: 'change'
+  		},
+  		props: {
+    		checked: Boolean
+  		},
+  		template: `
+    		<input
+      		type="checkbox"
+      		v-bind:checked="checked"
+      		v-on:change="$emit('change', $event.target.checked)"
+    		>
+  		`
+	})
+    <!--这里的 lovingVue 的值将会传入这个名为 checked 的 prop。同时当 <base-checkbox> 触发一个 change 事件并附带一个新的值的时候，这个 lovingVue 的属性将会被更新。 注意你仍然需要在组件的 props 选项里声明 checked 这个 prop。-->
+</script>
+```
+
+###### 3，将原生事件绑定到组件--.native修饰符
+
+```vue
+<-- 在一个组件的根元素上直接监听一个原生事件-->
+<base-input v-on:focus.native="onFocus"></base-input>
+<!--特殊情况，,base-input做了重构，根元素是label元素，原生事件失效 -->
+<template>
+  <label>
+  		{{ label }}
+  		<input
+    		v-bind="$attrs"
+    		v-bind:value="value"
+    		v-on:input="$emit('input', $event.target.value)"
+  		>
+	</label>
+</template>   
+```
+
+**总结：这时，父级的 `.native` 监听器将静默失败。它不会产生任何报错，但是 `onFocus` 处理函数不会如你预期地被调用。**
+
+解决方案：配合 ==**`v-on="$listeners"`**  v-on="**inputListeners**"==将所有的事件监听器指向这个组件的某个特定的子元素
+
+```vue
+<script>
+	Vue.component('base-input', {
+  inheritAttrs: false,
+  props: ['label', 'value'],
+  computed: {
+    inputListeners: function () {
+      var vm = this
+      // `Object.assign` 将所有的对象合并为一个新对象
+      return Object.assign({},
+        // 我们从父级添加所有的监听器
+        this.$listeners,
+        // 然后我们添加自定义监听器，
+        // 或覆写一些监听器的行为
+        {
+          // 这里确保组件配合 `v-model` 的工作
+          input: function (event) {
+            vm.$emit('input', event.target.value)
+          }
+        }
+      )
+    }
+  },
+  template: `
+    <label>
+      {{ label }}
+      <input
+        v-bind="$attrs"
+        v-bind:value="value"
+        v-on="inputListeners"
+      >
+    </label>
+  `
+})
+</script>
+```
+
+总结：现在 ==**base-input组件是一个完全透明的包裹器**==了，也就是说它可以完全像一个普通的  ==input元素==**一样使用了**，所有跟它相同的特性和监听器的都可以工作。
+
+###### 4，sync 修饰符
+
+需求：我们可能需要对一个 prop 进行“双向绑定”。
+
+分析：***真正的双向绑定会带来维护上的问题***，**因为子组件可以修改父组件，==且在父组件和子组件都没有明显的改动来源==**
+
+```vue
+<template>
+	<!-- 1-父组件：在一个包含 title prop 的假设的组件中，我们可以用以下方法表达对其赋新值的意图-->
+	<text-document
+  		v-bind:title="doc.title"
+  		v-on:update:title="doc.title = $event">
+    </text-document>
+
+	<--模式提供一个缩写，即 .sync 修饰符 -->
+   <!--2-注意：
+	带有 .sync 修饰符的 v-bind 不能和表达式一起使用 
+	(例如 v-bind:title.sync=”doc.title + ‘!’” 是无效的)。
+	取而代之的是，你只能提供你想要绑定的属性名，类似 v-model
+	-->
+   <text-document v-bind:title.sync="doc.title"></text-document>
+  	<!--
+	3--,当我们用一个对象同时设置多个 prop 的时候，也可以将这个 .sync 修饰符和 v-bind 配合使用 
+	这样会把 doc 对象中的每一个属性 (如 title) 都作为一个独立的 prop 传进去，然后各自添加用于更新的 v-on 	监听器。
+	-->      	
+    <text-document v-bind.sync="doc"></text-document>
+        
+</template>
+<script>
+    // 父组件
+	this.$emit('update:title', newTitle)
+</script>
+```
+
+**注意： 将 v-bind.sync`用在一个字面量的对象上，例如 v-bind.sync=”{ title: doc.title }”是无法正常工作的，因为在解析一个像这样的复杂表达式的时候，有很多边缘情况需要考虑。**
+
+##### 四，插槽
+
+###### 1，插槽内容--[1.标签的内容，2.标签，3.组件]
+
+A.	==在 2.6.0 中，我们为**具名插槽和作用域插槽**引入了一个新的统一的语法 (即 **v-slot** 指令)。它取代了 **slot 和 slot-scope**==
+
+B. 	Vue 实现了**==一套内容分发的 API==**，这套 API 的设计灵感源自 [Web Components 规范草案](https://github.com/w3c/webcomponents/blob/gh-pages/proposals/Slots-Proposal.md)，**将 slot 元素**作为==**承载分发内容**==的 **==出口==**
+
+```vue
+<template>
+	<!-- 父组件，应用组件，1.内容-->
+	<navigation-link url="/profile">
+  		Your Profile
+	</navigation-link>
+	<!-- 父组件，应用组件，2.标签-->
+	<navigation-link url="/profile">
+  		<span class="fa fa-user"></span>
+  			Your Profile
+	</navigation-link>
+	<!-- 父组件，应用组件，3.组件-->
+	<navigation-link url="/profile">
+  		<font-awesome-icon name="user"></font-awesome-icon>
+ 		 	Your Profile
+	</navigation-link>
+</template>
+<-- 组件，默认插槽-->
+<template>
+	<a
+  v-bind:href="url"
+  class="nav-link"
+>
+  <slot></slot>
+</a>
+</template>
+
+```
+
+###### 2，编译作用域
+
+**==父级模板里的所有内容都是在父级作用域中编译的；*子模板里的所有内容都是在子作用域中编译的*==**
+
+```vue
+<navigation-link url="/profile">
+  Clicking here will send you to: {{ url }}
+  <!--
+  这里的 `url` 会是 undefined，url 是在组件内编译的，
+  因为 "/profile" 是_传递给_ <navigation-link> 的 而不是在 <navigation-link> 组件*内部*定义的。
+  -->
+</navigation-link>
+```
+
+###### 3，插槽后备内容-插槽默认值
 
 
 
